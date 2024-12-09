@@ -1,0 +1,173 @@
+from random import *
+
+def create_maze(taille):
+    dico = {0: ' ', 1: '#', 2: '[]', 3: 'X', 'T': 'T', '?' : '?'}  
+    L = []
+    for i in range(taille):
+        L.append([])
+        for j in range(taille):
+            L[i].append(0 if randint(1, 100) <= 75 else 1)
+    
+    premiere_ligne = 0
+    L[premiere_ligne][0] = 0  
+    derniere_ligne = randint(0, taille - 1)
+    L[derniere_ligne][-1] = 2  
+    
+    return L, dico, (derniere_ligne, taille - 1)
+
+def create_perso(start):
+    return {'char': 'o', 'x': start[0], 'y': start[1]}
+
+def create_items(maze, num_items, start, sortie):
+    items = []
+    taille = len(maze)
+    
+    while len(items) < num_items:
+        x = randint(0, taille - 1)
+        y = randint(0, taille - 1)
+        if maze[x][y] == 0 and (x, y) != start and (x, y) != sortie:
+            items.append((x, y))
+    
+    return items
+
+def create_traps(maze, num_traps, start, sortie, items):
+    piege = []
+    taille = len(maze)
+    
+    while len(piege) < num_traps:
+        x = randint(0, taille - 1)
+        y = randint(0, taille - 1)
+        if maze[x][y] == 0 and (x, y) != start and (x, y) != sortie and (x, y) not in items:
+            maze[x][y] = 3  
+            piege.append((x, y))
+    
+    return piege
+
+def create_teleporteurs(maze, num_pairs, start, sortie, items, piege):
+    teleporteurs = []
+    taille = len(maze)
+    
+    while len(teleporteurs) < num_pairs * 2:  
+        x = randint(0, taille - 1)
+        y = randint(0, taille - 1)
+        if maze[x][y] == 0 and (x, y) != start and (x, y) != sortie and (x, y) not in items and (x, y) not in piege and (x, y) not in teleporteurs:
+            teleporteurs.append((x, y))
+    
+    for x, y in teleporteurs:
+        maze[x][y] = 'T'  
+    
+    pairs = [(teleporteurs[i], teleporteurs[i + 1]) for i in range(0, len(teleporteurs), 2)]
+    return pairs
+def create_casemystère(maze, num_cases, start, sortie, items, piege):
+    cases_mystères = []
+    taille = len(maze)
+    
+    while len(cases_mystères) < num_cases:
+        x = randint(0, taille - 1)
+        y = randint(0, taille - 1)
+        if maze[x][y] == 0 and (x, y) != start and (x, y) != sortie and (x, y) not in items and (x, y) not in piege:
+            cases_mystères.append((x, y))
+    
+    for x, y in cases_mystères:
+        maze[x][y] = '?'  # Marque les cases mystères sur le labyrinthe
+    
+    return cases_mystères
+
+def draw_maze_with_char(maze, dico, perso, items): 
+    for x, ligne in enumerate(maze):
+        for y, val in enumerate(ligne):
+            if x == perso['x'] and y == perso['y']:
+                print(perso['char'], end="")
+            elif (x, y) in items:
+                print("*", end="")  
+            else:
+                print(dico[val], end="")
+        print()
+
+def update_p(lettre, p, maze):
+    taille = len(maze)
+    mouvement = input("Entrer une lettre parmi: z (haut), q (gauche), s (bas), et d (droite): ")
+    
+    new_x, new_y = p['x'], p['y']
+    if mouvement == 'z' and p['x'] > 0: 
+        new_x -= 1
+    elif mouvement == 'q' and p['y'] > 0: 
+        new_y -= 1
+    elif mouvement == 's' and p['x'] < taille - 1: 
+        new_x += 1
+    elif mouvement == 'd' and p['y'] < taille - 1: 
+        new_y += 1
+    else:
+        print("Mouvement impossible ou entrée incorrecte. Veuillez réessayer.")
+        return p  
+    
+    if maze[new_x][new_y] == 1:
+        print("Vous avez rencontré un mur, déplacement impossible.")
+    else:
+        p['x'], p['y'] = new_x, new_y  
+    
+    return p
+
+
+
+maze, dico, sortie = create_maze(15)
+perso = create_perso((0, 0))
+items = create_items(maze, 5, (0, 0), sortie)
+piege = create_traps(maze, 5, (0, 0), sortie, items)
+teleporteurs = create_teleporteurs(maze, 2, (0, 0), sortie, items, piege)  
+cases_mystères = create_casemystère(maze, 3, (0, 0), sortie, items, piege)
+
+vies = 3
+start_position = (0, 0)
+
+while True: 
+    print(f"\n Vies restantes : {vies}")
+    draw_maze_with_char(maze, dico, perso, items)
+    perso = update_p(None, perso, maze)
+    
+    
+    for pair in teleporteurs:
+        if (perso['x'], perso['y']) in pair:
+            destination = pair[1] if (perso['x'], perso['y']) == pair[0] else pair[0]
+            print(f"✨ Téléportation de {(perso['x'], perso['y'])} à {destination} !")
+            perso['x'], perso['y'] = destination
+    
+    
+    if (perso['x'], perso['y']) in piege:
+        print("💥 Vous êtes tombé dans un piège ! Vous perdez une vie.")
+        vies -= 1
+        piege.remove((perso['x'], perso['y']))  
+        maze[perso['x']][perso['y']] = 0  
+        perso['x'], perso['y'] = start_position  
+        
+        if vies == 0:
+            print("\n💀 Vous n'avez plus de vies. Game Over ! 💀")
+            break
+    
+    
+    if (perso['x'], perso['y']) in items:
+        print("🎉 Vous avez ramassé un objet et gagné une vie supplémentaire !")
+        vies += 1
+        items.remove((perso['x'], perso['y']))  
+    
+    if (perso['x'], perso['y']) in cases_mystères:
+        print("❓ Vous êtes tombé sur une case mystère ! Répondez à cette énigme pour gagner ou perdre une vie.")
+        num1 = randint(1, 20)
+        num2 = randint(1, 10)
+        réponse = int(input(f"Quelle est la division entière de {num1} ÷ {num2} ? "))
+        
+        if réponse == num1 // num2:
+            print("✅ Bonne réponse ! Vous gagnez une vie.")
+            vies += 1
+        else:
+            print(f"❌ Mauvaise réponse. La bonne réponse était {num1 // num2}. Vous perdez une vie.")
+            vies -= 1
+        
+        cases_mystères.remove((perso['x'], perso['y']))
+    if not items:
+        print("\n🎉 Félicitations ! Vous avez ramassé tous les objets et terminé le jeu ! 🎉")
+        break
+    
+    if (perso['x'], perso['y']) == sortie:
+        print("\n🎉 Félicitations ! Vous avez atteint la sortie ! 🎉")
+        break
